@@ -168,8 +168,23 @@ ui <- fluidPage(
                                     selected = unique(outstanding_monthly$TimeToMaturity)),
                  
                  # Velg grupperingsvaribel (se utstedelser per risikoklasse f.eks)
-                 pickerInput(       inputId        = "sort_var",
-                                    label          = "Sorter etter",
+                 pickerInput(       inputId        = "sort_var_1",
+                                    label          = "Sorter etter (1)",
+                                    choices        = c("Ingen"           = "Today",
+                                                       "Valuta"          = "Currency",
+                                                       "Ustederland"     = "Issuer_Country",
+                                                       "Rentetype"       = "CurrentInterestType", 
+                                                       "Utsteder"        = "Issuer_Name",
+                                                       "Type utstedelse" = "IssueType",
+                                                       "Tid til forfall" = "TimeToMaturity",
+                                                       "Risikoklasse"    = "RiskClassRisk",
+                                                       "Industri"        = "Issuer_IndustryGrouping"),
+                                    selected = "Today",
+                                    multiple = FALSE),
+                 
+                 # Velg grupperingsvaribel (se utstedelser per risikoklasse f.eks)
+                 pickerInput(       inputId        = "sort_var_2",
+                                    label          = "Sorter etter (2)",
                                     choices        = c("Ingen"           = "Today",
                                                        "Valuta"          = "Currency",
                                                        "Ustederland"     = "Issuer_Country",
@@ -534,8 +549,37 @@ server <- function(input, output, session) {
              Issuer_IndustryGrouping %in% input$issuer_industries,
              RiskClassRisk           %in% input$risk_classes)%>%
       mutate(Today_dum = ceiling_date(Today, input$frequency) - 1)%>%
-      filter(Today == Today_dum)%>%
-      group_by_at(c("Today", paste0(input$sort_var)))%>%
+      filter(Today == Today_dum)
+    
+    if(input$sort_var_1 != "Today"){
+      
+      if(input$sort_var_2 == "Today"){
+        sort_1 <- data.frame(sort_1 = data[input$sort_var_1])
+        
+        names(sort_1)[1] <- "sort_1"
+        
+        data <- bind_cols(data, sort_1)%>%
+          mutate(sort_var = paste0(sort_1))}else{
+            
+            sort_1 <- data.frame(sort_1 = data[input$sort_var_1])
+            sort_2 <- data.frame(sort_2 = data[input$sort_var_2])
+            
+            names(sort_1)[1] <- "sort_1"
+            names(sort_2)[1] <- "sort_2"
+            
+            sort <- bind_cols(sort_1, sort_2)
+            
+            
+            data <- bind_cols(data, sort)%>%
+              mutate(sort_var = paste0(sort_1, " - ", sort_2))
+            
+          }}else{
+            data <- data%>%
+              mutate(sort_var = Today)
+            
+          }
+    data <- data%>%
+      group_by_at(c("Today", "sort_var"))%>%
       summarise(Outstanding = sum(CurrentOutstandingAmountNOK, na.rm = T)/10^9)%>%
       filter(Today >= input$dates_outstanding[1],
              Today <= input$dates_outstanding[2])
@@ -566,8 +610,38 @@ server <- function(input, output, session) {
              TimeToMaturity          %in% input$time_to_maturity,
              Issuer_IndustryGrouping %in% input$issuer_industries,
              RiskClassRisk           %in% input$risk_classes)%>%
-      mutate(Today = ceiling_date(Today, input$frequency) - 1)%>%
-      group_by_at(c("Today", input$sort_var))%>%
+      mutate(Today = ceiling_date(Today, input$frequency) - 1)
+    
+    if(input$sort_var_1 != "Today"){
+      
+      if(input$sort_var_2 == "Today"){
+        sort_1 <- data.frame(sort_1 = data[input$sort_var_1])
+        
+        names(sort_1)[1] <- "sort_1"
+        
+        data <- bind_cols(data, sort_1)%>%
+          mutate(sort_var = paste0(sort_1))}else{
+            
+            sort_1 <- data.frame(sort_1 = data[input$sort_var_1])
+            sort_2 <- data.frame(sort_2 = data[input$sort_var_2])
+            
+            names(sort_1)[1] <- "sort_1"
+            names(sort_2)[1] <- "sort_2"
+            
+            sort <- bind_cols(sort_1, sort_2)
+            
+            
+            data <- bind_cols(data, sort)%>%
+              mutate(sort_var = paste0(sort_1, " - ", sort_2))
+            
+          }}else{
+            data <- data%>%
+              mutate(sort_var = Today)
+            
+          }
+    
+    data <- data
+      group_by_at(c("Today", "sort_var"))%>%
       mutate(IssuedAmountNOK = ifelse(input$net_issuance_dum == "Bruttoutstedelser" & IssuedAmountNOK < 0 ,
                                       0,
                                       IssuedAmountNOK))%>%
@@ -603,8 +677,38 @@ server <- function(input, output, session) {
              RiskClassRisk           %in% input$risk_classes)%>%
       mutate(IssuedAmountNOK = ifelse(input$net_issuance_daily_dum == "Bruttoutstedelser" & IssuedAmountNOK < 0 ,
                                       0,
-                                      IssuedAmountNOK))%>%
-      group_by_at(c("Today", input$sort_var))%>%
+                                      IssuedAmountNOK))
+    
+    if(input$sort_var_1 != "Today"){
+      
+      if(input$sort_var_2 == "Today"){
+        sort_1 <- data.frame(sort_1 = data[input$sort_var_1])
+        
+        names(sort_1)[1] <- "sort_1"
+        
+        data <- bind_cols(data, sort_1)%>%
+          mutate(sort_var = paste0(sort_1))}else{
+            
+            sort_1 <- data.frame(sort_1 = data[input$sort_var_1])
+            sort_2 <- data.frame(sort_2 = data[input$sort_var_2])
+            
+            names(sort_1)[1] <- "sort_1"
+            names(sort_2)[1] <- "sort_2"
+            
+            sort <- bind_cols(sort_1, sort_2)
+            
+            
+            data <- bind_cols(data, sort)%>%
+              mutate(sort_var = paste0(sort_1, " - ", sort_2))
+            
+          }}else{
+            data <- data%>%
+              mutate(sort_var = Today)
+            
+          }
+    
+    data <- data%>%
+      group_by_at(c("Today", "sort_var"))%>%
       summarise(Issued = sum(IssuedAmountNOK, na.rm = T)/10^9)%>%
       filter(Today >= input$dates_outstanding[1],
              Today <= input$dates_outstanding[2])%>%
@@ -638,8 +742,38 @@ server <- function(input, output, session) {
       mutate(Today = ceiling_date(Today, input$frequency) - 1,
              MaturityDate = ceiling_date(MaturityDate, input$frequency) - 1)%>%
       filter(MaturityDate >= input$range_maturing[1],
-             MaturityDate <= input$range_maturing[2])%>%
-      group_by_at(c("MaturityDate", paste0(input$sort_var)))%>%
+             MaturityDate <= input$range_maturing[2])
+    
+    if(input$sort_var_1 != "Today"){
+      
+      if(input$sort_var_2 == "Today"){
+        sort_1 <- data.frame(sort_1 = data[input$sort_var_1])
+        
+        names(sort_1)[1] <- "sort_1"
+        
+        data <- bind_cols(data, sort_1)%>%
+          mutate(sort_var = paste0(sort_1))}else{
+            
+            sort_1 <- data.frame(sort_1 = data[input$sort_var_1])
+            sort_2 <- data.frame(sort_2 = data[input$sort_var_2])
+            
+            names(sort_1)[1] <- "sort_1"
+            names(sort_2)[1] <- "sort_2"
+            
+            sort <- bind_cols(sort_1, sort_2)
+            
+            
+            data <- bind_cols(data, sort)%>%
+              mutate(sort_var = paste0(sort_1, " - ", sort_2))
+            
+          }}else{
+            data <- data%>%
+              mutate(sort_var = Today)
+            
+          }
+    
+    data <- data%>%
+      group_by_at(c("MaturityDate", "sort_var"))%>%
       summarise(Maturing  = sum(CurrentOutstandingAmountNOK, na.rm = T)/10^9)
     
     if(ncol(data) > 2){
@@ -667,8 +801,38 @@ server <- function(input, output, session) {
              Issuer_IndustryGrouping %in% input$issuer_industries,
              RiskClassRisk           %in% input$risk_classes)%>%
       mutate(Today_dum = ceiling_date(Today, input$frequency) - 1)%>%
-      filter(Today == Today_dum)%>%
-      group_by_at(c("Today", paste0(input$sort_var)))%>%
+      filter(Today == Today_dum)
+    
+    if(input$sort_var_1 != "Today"){
+      
+      if(input$sort_var_2 == "Today"){
+        sort_1 <- data.frame(sort_1 = data[input$sort_var_1])
+        
+        names(sort_1)[1] <- "sort_1"
+        
+        data <- bind_cols(data, sort_1)%>%
+          mutate(sort_var = paste0(sort_1))}else{
+            
+            sort_1 <- data.frame(sort_1 = data[input$sort_var_1])
+            sort_2 <- data.frame(sort_2 = data[input$sort_var_2])
+            
+            names(sort_1)[1] <- "sort_1"
+            names(sort_2)[1] <- "sort_2"
+            
+            sort <- bind_cols(sort_1, sort_2)
+            
+            
+            data <- bind_cols(data, sort)%>%
+              mutate(sort_var = paste0(sort_1, " - ", sort_2))
+            
+          }}else{
+            data <- data%>%
+              mutate(sort_var = Today)
+            
+          }
+    
+    data <- data%>%
+      group_by_at(c("Today", "sort_var"))%>%
       summarise(AvgRate     = weighted.mean(CurrentCouponRate, CurrentOutstandingAmountNOK, na.rm = T))%>%
       filter(Today >= input$dates_outstanding[1],
              Today <= input$dates_outstanding[2])
@@ -701,8 +865,38 @@ server <- function(input, output, session) {
              RiskClassRisk           %in% input$risk_classes)%>%
       group_by(ISIN)%>%
       filter(Today  ==  first(Today))%>%
-      mutate(Today = ceiling_date(Today, input$frequency) - 1)%>%
-      group_by_at(c("Today", paste0(input$sort_var)))%>%
+      mutate(Today = ceiling_date(Today, input$frequency) - 1)
+    
+    if(input$sort_var_1 != "Today"){
+      
+      if(input$sort_var_2 == "Today"){
+        sort_1 <- data.frame(sort_1 = data[input$sort_var_1])
+        
+        names(sort_1)[1] <- "sort_1"
+        
+        data <- bind_cols(data, sort_1)%>%
+          mutate(sort_var = paste0(sort_1))}else{
+            
+            sort_1 <- data.frame(sort_1 = data[input$sort_var_1])
+            sort_2 <- data.frame(sort_2 = data[input$sort_var_2])
+            
+            names(sort_1)[1] <- "sort_1"
+            names(sort_2)[1] <- "sort_2"
+            
+            sort <- bind_cols(sort_1, sort_2)
+            
+            
+            data <- bind_cols(data, sort)%>%
+              mutate(sort_var = paste0(sort_1, " - ", sort_2))
+            
+          }}else{
+            data <- data%>%
+              mutate(sort_var = Today)
+            
+          }
+    
+    data <- data%>%
+      group_by_at(c("Today", "sort_var"))%>%
       summarise(AvgRate     = weighted.mean(CurrentCouponRate, IssuedAmountNOK, na.rm = T))%>%
       filter(Today >= input$dates_outstanding[1],
              Today <= input$dates_outstanding[2])
@@ -837,7 +1031,7 @@ server <- function(input, output, session) {
   
   # Lager datasettet som brukes i figuren med utestÃende volum
   data_outstanding <- reactive({
-    outstanding_monthly%>%
+    data <- outstanding_monthly%>%
       ungroup()%>%
       filter(
         Issuer_Name             %in% input$issuer_names,
@@ -851,11 +1045,45 @@ server <- function(input, output, session) {
         RiskClassRisk           %in% input$risk_classes)%>%
       mutate(Today_dum = ceiling_date(Today, input$frequency) - 1)%>%
       filter(Today == Today_dum)%>%
-      select(-Today_dum)%>%
-      group_by_at(c("Today", paste0(input$sort_var)))%>%
+      select(-Today_dum)
+    
+    if(input$sort_var_1 != "Today"){
+      
+      if(input$sort_var_2 == "Today"){
+        sort_1 <- data.frame(sort_1 = data[input$sort_var_1])
+        
+        names(sort_1)[1] <- "sort_1"
+        
+        data <- bind_cols(data, sort_1)%>%
+          mutate(sort_var = paste0(sort_1))}else{
+
+          sort_1 <- data.frame(sort_1 = data[input$sort_var_1])
+          sort_2 <- data.frame(sort_2 = data[input$sort_var_2])
+        
+          names(sort_1)[1] <- "sort_1"
+          names(sort_2)[1] <- "sort_2"
+          
+          sort <- bind_cols(sort_1, sort_2)
+            
+      
+        data <- bind_cols(data, sort)%>%
+          mutate(sort_var = paste0(sort_1, " - ", sort_2))
+        
+      }}else{
+        data <- data%>%
+          mutate(sort_var = Today)
+        
+      }
+    
+    
+    data%>%
+      group_by_at(c("Today", "sort_var"))%>%
       summarise(Outstanding = sum(CurrentOutstandingAmountNOK, na.rm = T)/10^9)%>%
       filter(Today >= input$dates_outstanding[1],
              Today <= input$dates_outstanding[2])
+    
+
+    
   })
   
   # Bruk funksjonen noma_tidy_plot som lager figur basert pÃ data_outstanding
@@ -865,11 +1093,11 @@ server <- function(input, output, session) {
       data_outstanding(),
       "Today",
       "Outstanding",
-      paste(input$sort_var),
+      paste0("sort_var"),
       paste(input$chart_type),
       plot_title     = input$title,
       plot_subtitle  = input$subtitle,
-      legend_options = list(showlegend = ifelse(input$sort_var == "Today", F, T)),
+      legend_options = list(showlegend = ifelse(input$sort_var_1 == "Today" & input$sort_var_2 == "Today", F, T)),
       yaxis_title    = ifelse(input$chart_type == "stacked percent area", "","Milliarder kr."))
     
   })
@@ -877,7 +1105,7 @@ server <- function(input, output, session) {
   
   data_issued <- reactive({
     
-    tranche_daily%>%
+    data <- tranche_daily%>%
       ungroup()%>%
       filter(Issuer_Name             %in% input$issuer_names,
              Issuer_Country          %in% input$countries,
@@ -889,8 +1117,41 @@ server <- function(input, output, session) {
              Issuer_IndustryGrouping %in% input$issuer_industries,
              RiskClassRisk           %in% input$risk_classes)%>%
       filter(Today <= Sys.Date())%>%
-      mutate(Today = ceiling_date(Today, input$frequency) - 1)%>%
-      group_by_at(c("Today", paste0(input$sort_var)))%>%
+      mutate(Today = ceiling_date(Today, input$frequency) - 1)
+      
+      if(input$sort_var_1 != "Today"){
+        
+        if(input$sort_var_2 == "Today"){
+          sort_1 <- data.frame(sort_1 = data[input$sort_var_1])
+          
+          names(sort_1)[1] <- "sort_1"
+          
+          data <- bind_cols(data, sort_1)%>%
+            mutate(sort_var = paste0(sort_1))}else{
+              
+              sort_1 <- data.frame(sort_1 = data[input$sort_var_1])
+              sort_2 <- data.frame(sort_2 = data[input$sort_var_2])
+              
+              names(sort_1)[1] <- "sort_1"
+              names(sort_2)[1] <- "sort_2"
+              
+              sort <- bind_cols(sort_1, sort_2)
+              
+              
+              data <- bind_cols(data, sort)%>%
+                mutate(sort_var = paste0(sort_1, " - ", sort_2))
+              
+            }}else{
+              data <- data%>%
+                mutate(sort_var = Today)
+              
+            }
+    
+    
+    data%>%
+      filter(Today >= input$dates_outstanding[1],
+             Today <= input$dates_outstanding[2])%>%
+      group_by_at(c("Today", "sort_var"))%>%
       mutate(IssuedAmountNOK = ifelse(input$net_issuance_dum == "Bruttoutstedelser" & IssuedAmountNOK < 0 ,
                                       0,
                                       IssuedAmountNOK))%>%
@@ -902,7 +1163,7 @@ server <- function(input, output, session) {
   
   data_issued_daily <- reactive({
     
-    tranche_daily%>%
+    data <- tranche_daily%>%
       ungroup()%>%
       filter(Issuer_Name             %in% input$issuer_names,
              Issuer_Country          %in% input$countries,
@@ -916,8 +1177,39 @@ server <- function(input, output, session) {
       filter(Today <= Sys.Date())%>%
       mutate(IssuedAmountNOK = ifelse(input$net_issuance_daily_dum == "Bruttoutstedelser" & IssuedAmountNOK < 0 ,
                                       0,
-                                      IssuedAmountNOK))%>%
-      group_by_at(c("Today", paste0(input$sort_var)))%>%
+                                      IssuedAmountNOK))
+    
+      
+      if(input$sort_var_1 != "Today"){
+        
+        if(input$sort_var_2 == "Today"){
+          sort_1 <- data.frame(sort_1 = data[input$sort_var_1])
+          
+          names(sort_1)[1] <- "sort_1"
+          
+          data <- bind_cols(data, sort_1)%>%
+            mutate(sort_var = paste0(sort_1))}else{
+              
+              sort_1 <- data.frame(sort_1 = data[input$sort_var_1])
+              sort_2 <- data.frame(sort_2 = data[input$sort_var_2])
+              
+              names(sort_1)[1] <- "sort_1"
+              names(sort_2)[1] <- "sort_2"
+              
+              sort <- bind_cols(sort_1, sort_2)
+              
+              
+              data <- bind_cols(data, sort)%>%
+                mutate(sort_var = paste0(sort_1, " - ", sort_2))
+              
+            }}else{
+              data <- data%>%
+                mutate(sort_var = Today)
+              
+            }
+    
+    data%>%
+      group_by_at(c("Today", "sort_var"))%>%
       summarise(Issued = sum(IssuedAmountNOK, na.rm = T)/10^9)%>%
       filter(Today >= input$dates_outstanding[1],
              Today <= input$dates_outstanding[2])
@@ -931,11 +1223,11 @@ server <- function(input, output, session) {
       data_issued(),
       "Today",
       "Issued",
-      paste(input$sort_var),
+      paste("sort_var"),
       paste(input$chart_type),
       plot_title     = input$title,
       plot_subtitle  = input$subtitle,
-      legend_options = list(showlegend = ifelse(input$sort_var == "Today", F, T)),
+      legend_options = list(showlegend = ifelse(input$sort_var_1 == "Today" & input$sort_var_2 == "Today", F, T)),
       yaxis_title    = ifelse(input$chart_type == "stacked percent area", "","Milliarder kr."))%>%
       layout(barmode = "relative")
     
@@ -947,11 +1239,11 @@ server <- function(input, output, session) {
       data_issued_daily(),
       "Today",
       "Issued",
-      paste(input$sort_var),
+      paste("sort_var"),
       paste(input$chart_type),
       plot_title     = input$title,
       plot_subtitle  = input$subtitle,
-      legend_options = list(showlegend = ifelse(input$sort_var == "Today", F, T)),
+      legend_options = list(showlegend = ifelse(input$sort_var_1 == "Today" & input$sort_var_2 == "Today", F, T)),
       yaxis_title    = ifelse(input$chart_type == "stacked percent area", "","Milliarder kr."))%>%
       layout(barmode = "relative")
     
@@ -960,7 +1252,7 @@ server <- function(input, output, session) {
   
   data_maturing <- reactive({
     
-    outstanding_monthly%>%
+    data <- outstanding_monthly%>%
       ungroup()%>%
       filter(Issuer_Name             %in% input$issuer_names,
              Issuer_Country          %in% input$countries,
@@ -974,8 +1266,38 @@ server <- function(input, output, session) {
              Today                    ==  input$date_maturing)%>%
       mutate(MaturityDate = ceiling_date(MaturityDate, input$frequency) - 1)%>%
       filter(MaturityDate >= input$range_maturing[1],
-             MaturityDate <= input$range_maturing[2])%>%
-      group_by_at(c("MaturityDate", paste0(input$sort_var)))%>%
+             MaturityDate <= input$range_maturing[2])
+    
+    if(input$sort_var_1 != "Today"){
+      
+      if(input$sort_var_2 == "Today"){
+        sort_1 <- data.frame(sort_1 = data[input$sort_var_1])
+        
+        names(sort_1)[1] <- "sort_1"
+        
+        data <- bind_cols(data, sort_1)%>%
+          mutate(sort_var = paste0(sort_1))}else{
+            
+            sort_1 <- data.frame(sort_1 = data[input$sort_var_1])
+            sort_2 <- data.frame(sort_2 = data[input$sort_var_2])
+            
+            names(sort_1)[1] <- "sort_1"
+            names(sort_2)[1] <- "sort_2"
+            
+            sort <- bind_cols(sort_1, sort_2)
+            
+            
+            data <- bind_cols(data, sort)%>%
+              mutate(sort_var = paste0(sort_1, " - ", sort_2))
+            
+          }}else{
+            data <- data%>%
+              mutate(sort_var = Today)
+            
+          }
+    
+    data%>%
+      group_by_at(c("MaturityDate", "sort_var"))%>%
       summarise(Maturing  = sum(CurrentOutstandingAmountNOK, na.rm = T)/10^9)
     
   })
@@ -987,11 +1309,11 @@ server <- function(input, output, session) {
       data_maturing(),
       "MaturityDate",
       "Maturing",
-      paste(input$sort_var),
+      paste("sort_var"),
       paste(input$chart_type),
       plot_title     = input$title,
       plot_subtitle  = input$subtitle,
-      legend_options = list(showlegend = ifelse(input$sort_var == "Today", F, T)),
+      legend_options = list(showlegend = ifelse(input$sort_var_1 == "Today" & input$sort_var_2 == "Today", F, T)),
       yaxis_title    = ifelse(input$chart_type == "stacked percent area", "","Milliarder kr."))
     
   })
@@ -1001,7 +1323,7 @@ server <- function(input, output, session) {
   
   data_rates_outstanding <- reactive({
     
-    outstanding_monthly%>%
+    data <- outstanding_monthly%>%
       ungroup()%>%
       filter(Issuer_Name             %in% input$issuer_names,
              Issuer_Country          %in% input$countries,
@@ -1014,8 +1336,38 @@ server <- function(input, output, session) {
              RiskClassRisk           %in% input$risk_classes)%>%
       mutate(Today_dum = ceiling_date(Today, input$frequency) - 1)%>%
       filter(Today == Today_dum)%>%
-      select(-Today_dum)%>%
-      group_by_at(c("Today", paste0(input$sort_var)))%>%
+      select(-Today_dum)
+    
+    if(input$sort_var_1 != "Today"){
+      
+      if(input$sort_var_2 == "Today"){
+        sort_1 <- data.frame(sort_1 = data[input$sort_var_1])
+        
+        names(sort_1)[1] <- "sort_1"
+        
+        data <- bind_cols(data, sort_1)%>%
+          mutate(sort_var = paste0(sort_1))}else{
+            
+            sort_1 <- data.frame(sort_1 = data[input$sort_var_1])
+            sort_2 <- data.frame(sort_2 = data[input$sort_var_2])
+            
+            names(sort_1)[1] <- "sort_1"
+            names(sort_2)[1] <- "sort_2"
+            
+            sort <- bind_cols(sort_1, sort_2)
+            
+            
+            data <- bind_cols(data, sort)%>%
+              mutate(sort_var = paste0(sort_1, " - ", sort_2))
+            
+          }}else{
+            data <- data%>%
+              mutate(sort_var = Today)
+            
+          }
+    
+    data%>%
+      group_by_at(c("Today", "sort_var"))%>%
       summarise(AvgRate     = weighted.mean(CurrentCouponRate, CurrentOutstandingAmountNOK, na.rm = T))%>%
       filter(Today >= input$dates_outstanding[1],
              Today <= input$dates_outstanding[2])
@@ -1026,7 +1378,7 @@ server <- function(input, output, session) {
   data_rates_new_issues <- reactive({
     
     
-    tranche_daily%>%
+    data <- tranche_daily%>%
       ungroup()%>%
       mutate(Today = ceiling_date(Today, "month") - 1)%>%
       filter(Issuer_Name             %in% input$issuer_names,
@@ -1041,8 +1393,38 @@ server <- function(input, output, session) {
       group_by(ISIN)%>%
       filter(Today                 ==  first(Today),
              IssuedAmountNOK        > 0)%>%
-      mutate(Today = ceiling_date(Today, input$frequency) - 1)%>%
-      group_by_at(c("Today", paste0(input$sort_var)))%>%
+      mutate(Today = ceiling_date(Today, input$frequency) - 1)
+    
+    if(input$sort_var_1 != "Today"){
+      
+      if(input$sort_var_2 == "Today"){
+        sort_1 <- data.frame(sort_1 = data[input$sort_var_1])
+        
+        names(sort_1)[1] <- "sort_1"
+        
+        data <- bind_cols(data, sort_1)%>%
+          mutate(sort_var = paste0(sort_1))}else{
+            
+            sort_1 <- data.frame(sort_1 = data[input$sort_var_1])
+            sort_2 <- data.frame(sort_2 = data[input$sort_var_2])
+            
+            names(sort_1)[1] <- "sort_1"
+            names(sort_2)[1] <- "sort_2"
+            
+            sort <- bind_cols(sort_1, sort_2)
+            
+            
+            data <- bind_cols(data, sort)%>%
+              mutate(sort_var = paste0(sort_1, " - ", sort_2))
+            
+          }}else{
+            data <- data%>%
+              mutate(sort_var = Today)
+            
+          }
+    
+    data%>%
+      group_by_at(c("Today", "sort_var"))%>%
       summarise(AvgRate         = weighted.mean(CurrentCouponRate, IssuedAmountNOK, na.rm = T),
                 IssuedAmountNOK = sum(IssuedAmountNOK, na.rm = T))%>%
       filter(Today >= input$dates_outstanding[1],
@@ -1094,11 +1476,11 @@ server <- function(input, output, session) {
       data_rates_outstanding(),
       "Today",
       "AvgRate",
-      paste(input$sort_var),
+      paste("sort_var"),
       paste(input$chart_type),
       plot_title     = input$title,
       plot_subtitle  = input$subtitle,
-      legend_options = list(showlegend = ifelse(input$sort_var == "Today", F, T)),
+      legend_options = list(showlegend = ifelse(input$sort_var_1 == "Today" & input$sort_var_2 == "Today", F, T)),
       yaxis_title    = "%")
     
     # Om knappen for "Styringsrenten" er huket av, legg til en sort linje med styringsrenten med funksjonen noma_add_line
@@ -1122,7 +1504,7 @@ server <- function(input, output, session) {
         k,
         "Today",
         "AvgRate",
-        paste(input$sort_var),
+        paste("sort_var"),
         paste("dot"),
         marker_size    = "IssuedAmountNOK",
         sizename       = "IssuedAmountNOK",
@@ -1144,7 +1526,7 @@ server <- function(input, output, session) {
         k,
         "Today",
         "AvgRate",
-        paste(input$sort_var),
+        paste("sort_var"),
         paste(input$chart_type),
         plot_title     = input$title,
         plot_subtitle  = input$subtitle,
