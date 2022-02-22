@@ -12,6 +12,8 @@ load("obligasjonsdata_dashboard.rda")
 source("F:/MB/MOA/Likviditet/Figurproduksjon/R/nomafunctions/R/noma_tidy_plot.r")
 source("F:/MB/MOA/Likviditet/Figurproduksjon/R/nomafunctions/R/noma_add_line.r")
 
+nb_colors <- c("#225978" ,"#78A57D", "#cd8c41", "#965a96", "#dd222d" ,"#49b4df", "#c3b996", "#a4acb1", "#967396", "#007d82")
+
 
 # Lager user interface = definerer hvordan appen skal se ut (layout, input, output)
 ui <- fluidPage(
@@ -77,10 +79,10 @@ ui <- fluidPage(
                                     multiple = TRUE,
                                     selected = unique(outstanding_monthly$Currency)),
                  
-                 # radioButtons("current_fx_rate_dummy",
-                 #              "Valutakurs for utstedelser i valuta",
-                 #              choices = c("Kurs ved utstedelse",  "Løpende kurs"),
-                 #              selected = "Kurs ved utstedelse"),
+                 radioButtons("current_fx_rate_dummy",
+                              "Valutakurs for utstedelser i valuta",
+                              choices = c("Kurs ved utstedelse",  "Løpende kurs"),
+                              selected = "Kurs ved utstedelse"),
                  
                  # Filtrer utstederland
                  pickerInput(       inputId  = "countries",
@@ -580,7 +582,9 @@ server <- function(input, output, session) {
           }
     data <- data%>%
       group_by_at(c("Today", "sort_var"))%>%
-      summarise(Outstanding = sum(CurrentOutstandingAmountNOK, na.rm = T)/10^9)%>%
+      summarise(Outstanding = ifelse(input$current_fx_rate_dummy == "Kurs ved utstedelse",
+                                     sum(CurrentOutstandingAmountNOK, na.rm = T)/10^9,
+                                     sum(CurrentOutstandingAmountNOK_CurrentRate, na.rm = T)/10^9))%>%
       filter(Today >= input$dates_outstanding[1],
              Today <= input$dates_outstanding[2])
     
@@ -1078,7 +1082,9 @@ server <- function(input, output, session) {
     
     data%>%
       group_by_at(c("Today", "sort_var"))%>%
-      summarise(Outstanding = sum(CurrentOutstandingAmountNOK, na.rm = T)/10^9)%>%
+      summarise(Outstanding = ifelse(input$current_fx_rate_dummy == "Kurs ved utstedelse",
+                                     sum(CurrentOutstandingAmountNOK, na.rm = T)/10^9,
+                                     sum(CurrentOutstandingAmountNOK_CurrentRate, na.rm = T)/10^9))%>%
       filter(Today >= input$dates_outstanding[1],
              Today <= input$dates_outstanding[2])
     
@@ -1095,6 +1101,7 @@ server <- function(input, output, session) {
       "Outstanding",
       paste0("sort_var"),
       paste(input$chart_type),
+      colors = nb_colors,
       plot_title     = input$title,
       plot_subtitle  = input$subtitle,
       legend_options = list(showlegend = ifelse(input$sort_var_1 == "Today" & input$sort_var_2 == "Today", F, T)),
@@ -1225,6 +1232,7 @@ server <- function(input, output, session) {
       "Issued",
       paste("sort_var"),
       paste(input$chart_type),
+      colors = nb_colors,
       plot_title     = input$title,
       plot_subtitle  = input$subtitle,
       legend_options = list(showlegend = ifelse(input$sort_var_1 == "Today" & input$sort_var_2 == "Today", F, T)),
@@ -1311,6 +1319,7 @@ server <- function(input, output, session) {
       "Maturing",
       paste("sort_var"),
       paste(input$chart_type),
+      colors = nb_colors,
       plot_title     = input$title,
       plot_subtitle  = input$subtitle,
       legend_options = list(showlegend = ifelse(input$sort_var_1 == "Today" & input$sort_var_2 == "Today", F, T)),
@@ -1478,6 +1487,7 @@ server <- function(input, output, session) {
       "AvgRate",
       paste("sort_var"),
       paste(input$chart_type),
+      colors = nb_colors,
       plot_title     = input$title,
       plot_subtitle  = input$subtitle,
       legend_options = list(showlegend = ifelse(input$sort_var_1 == "Today" & input$sort_var_2 == "Today", F, T)),
@@ -1510,6 +1520,7 @@ server <- function(input, output, session) {
         sizename       = "IssuedAmountNOK",
         plot_title     = input$title,
         plot_subtitle  = input$subtitle,
+        colors = nb_colors,
         legend_options = list(showlegend = ifelse(input$sort_var == "Today", F, T)),
         yaxis_title    = "%",
         custom_hover_text = paste("<b>",k[[input$sort_var]],"</b>",
@@ -1530,6 +1541,7 @@ server <- function(input, output, session) {
         paste(input$chart_type),
         plot_title     = input$title,
         plot_subtitle  = input$subtitle,
+        colors = nb_colors,
         legend_options = list(showlegend = ifelse(input$sort_var == "Today", F, T)),
         yaxis_title    = "%")
     }
@@ -1554,7 +1566,9 @@ server <- function(input, output, session) {
       paste("RiskClass"),
       paste("line"),
       plot_title    = "Kredittspreader per risikoklasse",
-      plot_subtitle = "Basispunkter" 
+      plot_subtitle = "Basispunkter",
+      colors = nb_colors
+      
     ) 
     
   })
@@ -1721,6 +1735,7 @@ server <- function(input, output, session) {
       "Issued",
       paste("RiskClassRisk"),
       paste("stacked bar"),
+      colors = nb_colors,
       plot_title     = "Bruttoutstedelser av OMF og senior i bank og finans",
       plot_subtitle  = "Milliarder kroner")%>%
       layout(barmode = "relative")
@@ -1735,6 +1750,7 @@ server <- function(input, output, session) {
       "Issued",
       paste("RiskClassRisk"),
       paste("stacked bar"),
+      colors = nb_colors,
       plot_title     = "Nettoutstedelser av OMF og senior i bank of finans",
       plot_subtitle  = "Milliarder kroner")%>%
       layout(barmode = "relative")
@@ -1756,6 +1772,7 @@ server <- function(input, output, session) {
       sizename       = "IssuedAmountNOK",
       plot_title     = "Nyutstedelser av OMF og senior i bank of finans",
       plot_subtitle  = "Volumvektet kupongrente (%) og volum (milliarder kroner)",
+      colors = nb_colors,
       custom_hover_text = paste("<b>",k$RiskClassRisk,"</b>",
                                 "<br>Today : ", format(k$Today, "%d.%m.%Y"), 
                                 "<br> CurrentCouponRate : ", round(k$CurrentCouponRate, 2),
@@ -1773,6 +1790,7 @@ server <- function(input, output, session) {
       "Value",
       paste("Type"),
       paste("stacked bar"),
+      colors = nb_colors,
       plot_title     = "Utstedelser og forfall av OMF og senior i bank og finans",
       plot_subtitle  = paste0("Milliarder kroner. Per", " ", format(update, "%d.%m.%Y")))%>%
       layout(barmode = "relative")
