@@ -276,7 +276,7 @@ info <- info%>%
 
 
 Industry_Mapping_bb <- data.frame("Issuer_IndustryGrouping_bb" = c("Banks",
-                                                                   "Finance","Commercial Finance","Diversified Banks","Financial Services","Funds & Trusts",
+                                                                   "Finance","Commercial Finance","Diversified Banks","Financial Services","Funds & Trusts", "Consumer Finance",
                                                                    "Real Estate",
                                                                    "Life Insurance", "Property & Casualty Insurance",
                                                                    "Biotechnology", "Health Care Facilities & Services", "Managed Care", "Medical Equipment & Devices Manufacturing",
@@ -289,15 +289,16 @@ Industry_Mapping_bb <- data.frame("Issuer_IndustryGrouping_bb" = c("Banks",
                                                                    "Airlines", "Railroad", "Travel & Lodging",
                                                                    "Internet Media", "Advertising & Marketing",
                                                                    "Consumer Services",
-                                                                   "Exploration & Production",
+                                                                   "Exploration & Production", "Integrated Oils",
                                                                    "Oil & Gas Services & Equipment",
-                                                                   "Food & Beverage",
-                                                                   "Semiconductors", "Software & Services", "Communications Equipment", "Wireline Telecommunications Services",
-                                                                   "Waste & Environment Services & Equipment"
+                                                                   "Food & Beverage", "Supermarkets & Pharmacies", "Home Improvement", "Electrical Equipment Manufacturing",
+                                                                   "Semiconductors", "Software & Services", "Communications Equipment", "Wireline Telecommunications Services", "Wireless Telecommunications Services",
+                                                                   "Waste & Environment Services & Equipment", "Chemicals", "Industrial Other",
+                                                                   "Automobiles Manufacturing"
 ),
 
 "sd_equivalent"              = c("Bank",
-                                 "Finance", "Finance", "Finance", "Finance", "Finance",
+                                 "Finance", "Finance", "Finance", "Finance", "Finance", "Finance",
                                  "Real Estate",
                                  "Insurance", "Insurance",
                                  "Health Care", "Health Care", "Health Care", "Health Care",
@@ -310,11 +311,12 @@ Industry_Mapping_bb <- data.frame("Issuer_IndustryGrouping_bb" = c("Banks",
                                  "Transportation", "Transportation", "Transportation",
                                  "Media", "Media",
                                  "Consumer Services",
-                                 "Oil and gas E&P",
+                                 "Oil and gas E&P", "Oil and gas E&P",
                                  "Oil and gas services",
-                                 "Convenience Goods",
-                                 "Telecom/IT", "Telecom/IT", "Telecom/IT", "Telecom/IT",
-                                 "Industry"
+                                 "Convenience Goods", "Convenience Goods", "Convenience Goods", "Convenience Goods",
+                                 "Telecom/IT", "Telecom/IT", "Telecom/IT", "Telecom/IT", "Telecom/IT",
+                                 "Industry", "Industry", "Industry",
+                                 "Auto"
 )
 )
 
@@ -1043,7 +1045,8 @@ tranche_daily <- bind_rows(data_complete%>%mutate(EarlyRedeemedDate = as.Date(Ea
             by = c("ISIN_country_code" = "Issuer_CountryCode"))%>%
   select(-ISIN_country_code)%>%
   mutate(ISIN_Country = ifelse(is.na(ISIN_Country), "Ingen ISIN", ISIN_Country),
-         Issuer_Country = ifelse(Issuer_Name == "Hawk Debtco Ltd", "United Kingdom", Issuer_Country))
+         Issuer_Country = ifelse(Issuer_Name == "Hawk Debtco Ltd", "United Kingdom", Issuer_Country),
+         Issuer_IndustryGrouping = ifelse(is.na(Issuer_IndustryGrouping), "Ingen info", Issuer_IndustryGrouping))
 
 # Lag dataframe med datoer på månedlig frekvens fra 1990 til i dag
 dates_monthly <- data.frame("Today" = seq(as.Date("1990-01-01"), Sys.Date() + 31, by = "month") - 1)
