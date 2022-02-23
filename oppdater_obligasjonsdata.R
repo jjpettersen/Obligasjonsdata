@@ -79,26 +79,26 @@ tickers_norske_new <- tickers_norske_new$id %>% as.character()
 
 # Hent disse kolonnene fra Bloomberg
 info_norske_new <- bdp(tickers_norske_new,
-                c("LONG_COMP_NAME",
-                  "TICKER",
-                  "ID_ISIN",
-                  "DES_NOTES",
-                  "CRNCY",
-                  "ISSUE_DT",
-                  "ORIGINAL_AMOUNT_SOLD",
-                  "AMT_ISSUED",
-                  "MATURITY",
-                  "CALLED_DT",
-                  "RESET_IDX",
-                  "REFIX_FREQ",
-                  "FIRST_CPN_DT",
-                  "CPN_TYP",
-                  "CPN",
-                  "BICS_LEVEL_1_NAME",
-                  "BICS_LEVEL_2_INDUSTRY_GROUP_NAME",
-                  "COLLAT_TYP",
-                  "PAYMENT_RANK",
-                  "BASEL_III_DESIGNATION"))%>%
+                       c("LONG_COMP_NAME",
+                         "TICKER",
+                         "ID_ISIN",
+                         "DES_NOTES",
+                         "CRNCY",
+                         "ISSUE_DT",
+                         "ORIGINAL_AMOUNT_SOLD",
+                         "AMT_ISSUED",
+                         "MATURITY",
+                         "CALLED_DT",
+                         "RESET_IDX",
+                         "REFIX_FREQ",
+                         "FIRST_CPN_DT",
+                         "CPN_TYP",
+                         "CPN",
+                         "BICS_LEVEL_1_NAME",
+                         "BICS_LEVEL_2_INDUSTRY_GROUP_NAME",
+                         "COLLAT_TYP",
+                         "PAYMENT_RANK",
+                         "BASEL_III_DESIGNATION"))%>%
   filter(substr(ID_ISIN, 1,2) != "NO")%>%
   mutate(Issuer_Country = "Norway")
 
@@ -114,34 +114,34 @@ tickers_utenlandske_NOK_new <- tickers_utenlandske_NOK_new$id %>% as.character()
 
 # Hent disse kolonnene
 info_utenlandske_NOK_new <- bdp(tickers_utenlandske_NOK_new,
-                            c("LONG_COMP_NAME",
-                              "CNTRY_OF_INCORPORATION",
-                              "TICKER",
-                              "ID_ISIN",
-                              "ID_BB",
-                              "DES_NOTES",
-                              "CRNCY",
-                              "ISSUE_DT",
-                              "ORIGINAL_AMOUNT_SOLD",
-                              "AMT_ISSUED",
-                              "MATURITY",
-                              "CALLED_DT",
-                              "RESET_IDX",
-                              "REFIX_FREQ",
-                              "FIRST_CPN_DT",
-                              "CPN_TYP",
-                              "CPN",
-                              "BICS_LEVEL_1_NAME",
-                              "BICS_LEVEL_2_INDUSTRY_GROUP_NAME",
-                              "COLLAT_TYP",
-                              "PAYMENT_RANK",
-                              "BASEL_III_DESIGNATION"))%>%
+                                c("LONG_COMP_NAME",
+                                  "CNTRY_OF_INCORPORATION",
+                                  "TICKER",
+                                  "ID_ISIN",
+                                  "ID_BB",
+                                  "DES_NOTES",
+                                  "CRNCY",
+                                  "ISSUE_DT",
+                                  "ORIGINAL_AMOUNT_SOLD",
+                                  "AMT_ISSUED",
+                                  "MATURITY",
+                                  "CALLED_DT",
+                                  "RESET_IDX",
+                                  "REFIX_FREQ",
+                                  "FIRST_CPN_DT",
+                                  "CPN_TYP",
+                                  "CPN",
+                                  "BICS_LEVEL_1_NAME",
+                                  "BICS_LEVEL_2_INDUSTRY_GROUP_NAME",
+                                  "COLLAT_TYP",
+                                  "PAYMENT_RANK",
+                                  "BASEL_III_DESIGNATION"))%>%
   filter(substr(ID_ISIN, 1,2) != "NO")%>%
   rename(Issuer_CountryCode = CNTRY_OF_INCORPORATION)%>%
   left_join(country_codes)%>%
   select(-Issuer_CountryCode)%>%
   rename(id = ID_BB)
-    
+
 
 info_raw <- bind_rows(info_old, info_norske_new, info_utenlandske_NOK_new)%>%
   ungroup()%>%
@@ -160,9 +160,9 @@ info_raw <- info_raw%>%
                                             "XS1515377742",
                                             "XS1427243594"
                                             
-                                            ),
-                             AMT_ISSUED / 10^3,
-                             AMT_ISSUED))
+  ),
+  AMT_ISSUED / 10^3,
+  AMT_ISSUED))
 
 # Noen utstedelser er "funged". Fanger dette opp gjennom description notes-kolonnen, hvis den inneholder ordet "FUNGED".
 # Finner datoen i description notes og lager FungedDate, leter på to mest brukte dato-formater
@@ -461,7 +461,7 @@ outstanding_compare <- data_latest_reopenings%>%
 
 
 # Hent data for disse tickerne 
-tickers_fetch_reopenings_new <- outstanding_compare$id.y
+tickers_fetch_reopenings_new <- outstanding_compare$id.x
 
 # Hvis det finnes papirer hvor det er diff,
 if (length(tickers_fetch_reopenings_new) > 0) {
@@ -699,7 +699,8 @@ matured_bb <- tranche_bb%>%
          IssuedAmountNOK = - CurrentOutstandingAmountNOK,
          Today = MaturityDate,
          CurrentOutstandingAmount = 0,
-         CurrentOutstandingAmountNOK = 0)
+         CurrentOutstandingAmountNOK = 0,
+         TimeToMaturity = "0-1")
 
 
 
@@ -799,8 +800,8 @@ Mapping_SQL_NA <- sql_info_NA_data%>%
   rename(ISIN = ID_ISIN)%>%
   select(ISIN, RiskClassRisk_tmp)%>%
   filter(is.na(RiskClassRisk_tmp) == F)
-  
-  
+
+
 
 # Last ned spreader (se bort fra datoer vi allerede har i datasettet)
 ISIN_spreads <- sqlQuery(dbhandle,
@@ -1022,6 +1023,20 @@ data_complete <- data_complete%>%left_join(names_industry, by = "Issuer_Name")%>
 
 tranche_daily <- bind_rows(data_complete%>%mutate(EarlyRedeemedDate = as.Date(EarlyRedeemedDate)), tranche_bb)%>%
   mutate(ISIN = ifelse(str_length(ISIN) == 12, ISIN, id))%>%
+  group_by(ISIN)%>%
+  mutate(Issuer_Name         = last(Issuer_Name),
+         CurrentInterestType = last(CurrentInterestType),
+         Today               = as.Date(Today),
+         IssueDate           = as.Date(IssueDate),
+         MaturityDate        = as.Date(MaturityDate),
+         TimeToMaturity = ifelse(MaturityDate - Today <= 365, "0-1", NA),
+         TimeToMaturity = ifelse(MaturityDate - Today > 365 & MaturityDate - Today <= 2*365, "1-2", TimeToMaturity),
+         TimeToMaturity = ifelse(MaturityDate - Today > 2*365 & MaturityDate - Today <= 5*365, "2-5", TimeToMaturity),
+         TimeToMaturity = ifelse(MaturityDate - Today > 5*365 & MaturityDate - Today <= 10*365, "5-10", TimeToMaturity),
+         TimeToMaturity = ifelse(MaturityDate - Today > 10*365 & MaturityDate - Today <= 15*365, "10-15", TimeToMaturity),
+         TimeToMaturity = ifelse(MaturityDate - Today > 15*365,               "15+", TimeToMaturity),
+         
+         TimeToMaturity = factor(TimeToMaturity, levels = c("15+", "10-15", "5-10", "2-5", "1-2", "0-1")))%>%
   ungroup()%>%unique()%>%
   mutate(ISIN_country_code = ifelse(str_length(ISIN) == 12, substr(ISIN,1,2), NA))%>%
   left_join(country_codes%>%rename(ISIN_Country = Issuer_Country), 
@@ -1036,7 +1051,7 @@ dates_monthly <- data.frame("Today" = seq(as.Date("1990-01-01"), Sys.Date() + 31
 # Lag dataframe med datoer fra 1990 til i dag, per ISIN
 ISIN_dates <- dates_monthly%>%
   bind_rows(tranche_daily%>%select(ISIN)%>%
-                ungroup()%>%unique())%>%
+              ungroup()%>%unique())%>%
   complete(Today, ISIN)%>%
   filter(is.na(Today) == F,
          is.na(ISIN) == F)
