@@ -273,6 +273,29 @@ ui <- fluidPage(
                                      label       = "Filnavn", 
                                      placeholder = "")),
                   
+                  tabPanel("Vekst 12-mnd",
+                           
+                           radioButtons("growth_contribution_dum",
+                                        "",
+                                        choices = c(
+                                          "Individuell vekst (%)",
+                                          "Bidrag samlet vekst (prosentenheter)"
+                                        ),
+                                        selected = "Bidrag samlet vekst (prosentenheter)"),
+                           
+                           
+                           
+                           
+                           plotlyOutput("plot_growth", width = "75%"),
+                           
+                           
+                           downloadButton("dl_growth_excel", "Last ned til Excel"),
+                           
+                           
+                           textInput(inputId     = "filename_growth", 
+                                     label       = "Filnavn", 
+                                     placeholder = "")),
+                  
                   # Lag en fane som heter "Daglige utstedelser"
                   tabPanel("Daglige utstedelser",
                            
@@ -589,6 +612,99 @@ server <- function(input, output, session) {
              Today <= input$dates_outstanding[2])
     
     
+    if(ncol(data) > 2  & input$sort_var_1 != "Today"){
+      data <- data%>%
+        spread(2, 3, fill = 0)
+      
+    }else{
+      if(input$sort_var_1 == "Today" & input$sort_var_2 == "Today"){
+      data <- data%>%
+        ungroup()%>%
+        select(-sort_var)}
+    }
+    
+  })
+  
+  dl_input_growth <- reactive({
+    
+    data <- outstanding_monthly%>%
+      ungroup()%>%
+      filter(Issuer_Name             %in% input$issuer_names,
+             Issuer_Country          %in% input$countries,
+             ISIN_Country            %in% input$ISIN_countries,
+             Currency                %in% input$currencies,
+             IssueType               %in% input$issue_types,
+             CurrentInterestType     %in% input$coupon_types,
+             TimeToMaturity          %in% input$time_to_maturity,
+             Issuer_IndustryGrouping %in% input$issuer_industries,
+             RiskClassRisk           %in% input$risk_classes)%>%
+      mutate(Today_dum = ceiling_date(Today, "month") - 1)%>%
+      filter(Today == Today_dum)
+    
+    if(input$sort_var_1 != "Today"){
+      
+      if(input$sort_var_2 == "Today"){
+        sort_1 <- data.frame(sort_1 = data[input$sort_var_1])
+        
+        names(sort_1)[1] <- "sort_1"
+        
+        data <- bind_cols(data, sort_1)%>%
+          mutate(sort_var = paste0(sort_1))}else{
+            
+            sort_1 <- data.frame(sort_1 = data[input$sort_var_1])
+            sort_2 <- data.frame(sort_2 = data[input$sort_var_2])
+            
+            names(sort_1)[1] <- "sort_1"
+            names(sort_2)[1] <- "sort_2"
+            
+            sort <- bind_cols(sort_1, sort_2)
+            
+            
+            data <- bind_cols(data, sort)%>%
+              mutate(sort_var = paste0(sort_1, " - ", sort_2))
+            
+          }}else{
+            data <- data%>%
+              mutate(sort_var = Today)
+            
+          }
+    data <- data%>%
+      group_by_at(c("Today", "sort_var"))%>%
+      summarise(Outstanding = ifelse(input$current_fx_rate_dummy == "Kurs ved utstedelse",
+                                     sum(CurrentOutstandingAmountNOK, na.rm = T)/10^9,
+                                     sum(CurrentOutstandingAmountNOK_CurrentRate, na.rm = T)/10^9))%>%
+      group_by_at("sort_var")%>%
+      mutate(Outstanding_tmin12 = lag(Outstanding, 12),
+             Outstanding_tmin12 = ifelse(is.na(Outstanding_tmin12), 0, Outstanding_tmin12),
+             AbsGrowth = Outstanding - Outstanding_tmin12,
+             Growth    = (Outstanding / Outstanding_tmin12 - 1) * 100)%>%
+      group_by_at("Today")%>%
+      mutate(AbsGrowthTot = sum(AbsGrowth),
+             VolumeWeightedGrowth = (sum(Outstanding) / sum(Outstanding_tmin12) - 1) * 100,
+             Weight = Outstanding_tmin12 / sum(Outstanding_tmin12),
+             GrowthContribution = (AbsGrowth / AbsGrowthTot) * VolumeWeightedGrowth)
+    
+    if(input$sort_var_1 == "Today" & input$sort_var_2 == "Today"){
+      data <- data%>%
+        ungroup()%>%
+        select(Today, Outstanding)%>%
+        mutate(Growth = (Outstanding / lag(Outstanding, 12) - 1) * 100)%>%
+        select(Today, Growth)
+      }else{
+          
+    
+    if(input$growth_contribution_dum == "Individuell vekst (%)"){
+      data <- data%>%select(Today, sort_var, Growth)%>%
+        group_by_at(c("Today", "sort_var"))%>%
+        summarise(Growth = sum(Growth))
+    }else{
+      data <- data%>%select(Today, sort_var, GrowthContribution)%>%
+        group_by_at(c("Today", "sort_var"))%>%
+        summarise(GrowthContribution = sum(GrowthContribution))
+    }
+      }
+
+    
     if(ncol(data) > 2){
       data <- data%>%
         spread(2, 3, fill = 0)
@@ -596,6 +712,10 @@ server <- function(input, output, session) {
     }else{
       data <- data
     }
+    
+    data <- data%>%
+      filter(Today >= input$dates_outstanding[1],
+             Today <= input$dates_outstanding[2])
     
   })
   
@@ -614,6 +734,7 @@ server <- function(input, output, session) {
              TimeToMaturity          %in% input$time_to_maturity,
              Issuer_IndustryGrouping %in% input$issuer_industries,
              RiskClassRisk           %in% input$risk_classes)%>%
+      filter(Today <= Sys.Date())%>%
       mutate(Today = ceiling_date(Today, input$frequency) - 1)
     
     if(input$sort_var_1 != "Today"){
@@ -644,23 +765,27 @@ server <- function(input, output, session) {
             
           }
     
-    data <- data
+    
+    data <- data%>%
+      filter(Today >= input$dates_outstanding[1],
+             Today <= input$dates_outstanding[2])%>%
       group_by_at(c("Today", "sort_var"))%>%
       mutate(IssuedAmountNOK = ifelse(input$net_issuance_dum == "Bruttoutstedelser" & IssuedAmountNOK < 0 ,
                                       0,
                                       IssuedAmountNOK))%>%
-      summarise(Issued = sum(IssuedAmountNOK, na.rm = T)/10^9)%>%
-      filter(Today >= input$dates_outstanding[1],
-             Today <= input$dates_outstanding[2])%>%
-      spread(2, 3, fill = 0)
+      summarise(Issued = sum(IssuedAmountNOK, na.rm = T)/10^9)
     
-    if(ncol(data) > 2){
-      data <- data%>%
-        spread(2, 3, fill = 0)
-      
-    }else{
-      data <- data
-    }
+    
+      if(ncol(data) > 2  & input$sort_var_1 != "Today"){
+        data <- data%>%
+          spread(2, 3, fill = 0)
+
+      }else{
+        if(input$sort_var_1 == "Today" & input$sort_var_2 == "Today"){
+          data <- data%>%
+            ungroup()%>%
+            select(-sort_var)}
+      }
     
   })
   
@@ -679,9 +804,11 @@ server <- function(input, output, session) {
              TimeToMaturity          %in% input$time_to_maturity,
              Issuer_IndustryGrouping %in% input$issuer_industries,
              RiskClassRisk           %in% input$risk_classes)%>%
+      filter(Today <= Sys.Date())%>%
       mutate(IssuedAmountNOK = ifelse(input$net_issuance_daily_dum == "Bruttoutstedelser" & IssuedAmountNOK < 0 ,
                                       0,
                                       IssuedAmountNOK))
+    
     
     if(input$sort_var_1 != "Today"){
       
@@ -715,15 +842,17 @@ server <- function(input, output, session) {
       group_by_at(c("Today", "sort_var"))%>%
       summarise(Issued = sum(IssuedAmountNOK, na.rm = T)/10^9)%>%
       filter(Today >= input$dates_outstanding[1],
-             Today <= input$dates_outstanding[2])%>%
-      spread(2, 3, fill = 0)
+             Today <= input$dates_outstanding[2])
     
-    if(ncol(data) > 2){
+    if(ncol(data) > 2  & input$sort_var_1 != "Today"){
       data <- data%>%
         spread(2, 3, fill = 0)
-      
+
     }else{
-      data <- data
+      if(input$sort_var_1 == "Today" & input$sort_var_2 == "Today"){
+        data <- data%>%
+          ungroup()%>%
+          select(-sort_var)}
     }
     
   })
@@ -905,6 +1034,17 @@ server <- function(input, output, session) {
       filter(Today >= input$dates_outstanding[1],
              Today <= input$dates_outstanding[2])
     
+    if(ncol(data) > 2  & input$sort_var_1 != "Today"){
+      data <- data%>%
+        spread(2, 3, fill = 0)
+      
+    }else{
+      if(input$sort_var_1 == "Today" & input$sort_var_2 == "Today"){
+        data <- data%>%
+          ungroup()%>%
+          select(-sort_var)}
+    }
+    
   })
   
   dl_input_spreads_time_series <- reactive({
@@ -966,6 +1106,16 @@ server <- function(input, output, session) {
     }
   )
   
+  output$dl_growth_excel <- downloadHandler(
+    
+    filename = function() {paste(input$filename_growth, ".xlsx", sep = "")},
+    
+    content  = function(file) {
+      write_xlsx(dl_input_growth(), 
+                 file)
+    }
+  )
+  
   output$dl_issued_excel <- downloadHandler(
     
     filename = function() {paste(input$filename_issued, ".xlsx", sep = "")},
@@ -975,7 +1125,7 @@ server <- function(input, output, session) {
     }
   )
   
-  output$dl_issued_daily <- downloadHandler(
+  output$dl_issued_daily_excel <- downloadHandler(
     
     filename = function() {paste(input$filename_issued_daily, ".xlsx", sep = "")},
     
@@ -1034,6 +1184,8 @@ server <- function(input, output, session) {
   
   
   # Lager datasettet som brukes i figuren med utestÃende volum
+  
+  
   data_outstanding <- reactive({
     data <- outstanding_monthly%>%
       ungroup()%>%
@@ -1092,6 +1244,83 @@ server <- function(input, output, session) {
     
   })
   
+  data_growth <- reactive({
+    data <- outstanding_monthly%>%
+      ungroup()%>%
+      filter(
+        Issuer_Name             %in% input$issuer_names,
+        Issuer_Country          %in% input$countries,
+        ISIN_Country            %in% input$ISIN_countries,
+        Currency                %in% input$currencies,
+        IssueType               %in% input$issue_types,
+        CurrentInterestType     %in% input$coupon_types,
+        TimeToMaturity          %in% input$time_to_maturity,
+        Issuer_IndustryGrouping %in% input$issuer_industries,
+        RiskClassRisk           %in% input$risk_classes)%>%
+      mutate(Today_dum = ceiling_date(Today, "month") - 1)%>%
+      filter(Today == Today_dum)%>%
+      select(-Today_dum)
+    
+    if(input$sort_var_1 != "Today"){
+      
+      if(input$sort_var_2 == "Today"){
+        sort_1 <- data.frame(sort_1 = data[input$sort_var_1])
+        
+        names(sort_1)[1] <- "sort_1"
+        
+        data <- bind_cols(data, sort_1)%>%
+          mutate(sort_var = paste0(sort_1))}else{
+            
+            sort_1 <- data.frame(sort_1 = data[input$sort_var_1])
+            sort_2 <- data.frame(sort_2 = data[input$sort_var_2])
+            
+            names(sort_1)[1] <- "sort_1"
+            names(sort_2)[1] <- "sort_2"
+            
+            sort <- bind_cols(sort_1, sort_2)
+            
+            
+            data <- bind_cols(data, sort)%>%
+              mutate(sort_var = paste0(sort_1, " - ", sort_2))
+            
+          }}else{
+            data <- data%>%
+              mutate(sort_var = Today)
+            
+          }
+    
+    
+    data <- data%>%
+      group_by_at(c("Today", "sort_var"))%>%
+      summarise(Outstanding = ifelse(input$current_fx_rate_dummy == "Kurs ved utstedelse",
+                                     sum(CurrentOutstandingAmountNOK, na.rm = T)/10^9,
+                                     sum(CurrentOutstandingAmountNOK_CurrentRate, na.rm = T)/10^9))%>%
+      group_by_at("sort_var")%>%
+      mutate(Outstanding_tmin12 = lag(Outstanding, 12),
+             Outstanding_tmin12 = ifelse(is.na(Outstanding_tmin12), 0, Outstanding_tmin12),
+             AbsGrowth = Outstanding - Outstanding_tmin12,
+             Growth    = (Outstanding / Outstanding_tmin12 - 1) * 100)%>%
+      group_by_at("Today")%>%
+      mutate(AbsGrowthTot = sum(AbsGrowth),
+             VolumeWeightedGrowth = (sum(Outstanding) / sum(Outstanding_tmin12) - 1) * 100,
+             Weight = Outstanding_tmin12 / sum(Outstanding_tmin12),
+             GrowthContribution = (AbsGrowth / AbsGrowthTot) * VolumeWeightedGrowth)
+
+    
+    if(input$sort_var_1 == "Today" & input$sort_var_2 == "Today"){
+      data <- data%>%
+        ungroup()%>%
+        mutate(Growth = (Outstanding / lag(Outstanding, 12) - 1) * 100,
+               GrowthContribution = (Outstanding / lag(Outstanding, 12) - 1) * 100)
+    }else
+    {data}
+    
+    data <- data%>%
+      filter(Today >= input$dates_outstanding[1],
+             Today <= input$dates_outstanding[2])
+      
+  })
+  
   # Bruk funksjonen noma_tidy_plot som lager figur basert pÃ data_outstanding
   output$plot_outstanding <- renderPlotly({
     
@@ -1106,6 +1335,42 @@ server <- function(input, output, session) {
       plot_subtitle  = input$subtitle,
       legend_options = list(showlegend = ifelse(input$sort_var_1 == "Today" & input$sort_var_2 == "Today", F, T)),
       yaxis_title    = ifelse(input$chart_type == "stacked percent area", "","Milliarder kr."))
+    
+  })
+  
+  output$plot_growth <- renderPlotly({
+    
+    if(input$growth_contribution_dum == "Individuell vekst (%)"){
+      
+      noma_tidy_plot(
+        data_growth(),
+        "Today",
+        "Growth",
+        paste0("sort_var"),
+        paste(input$chart_type),
+        colors = nb_colors,
+        plot_title     = input$title,
+        plot_subtitle  = input$subtitle,
+        legend_options = list(showlegend = ifelse(input$sort_var_1 == "Today" & input$sort_var_2 == "Today", F, T)),
+        yaxis_title    = ifelse(input$chart_type == "stacked percent area", "Andel av vekst","%"))%>%
+        layout(barmode = "relative")
+      
+    }else{
+    
+    noma_tidy_plot(
+      data_growth(),
+      "Today",
+      "GrowthContribution",
+      paste0("sort_var"),
+      paste(input$chart_type),
+      colors = nb_colors,
+      plot_title     = input$title,
+      plot_subtitle  = input$subtitle,
+      legend_options = list(showlegend = ifelse(input$sort_var_1 == "Today" & input$sort_var_2 == "Today", F, T)),
+      yaxis_title    = ifelse(input$chart_type == "stacked percent area", "Andel av vekst","%"))%>%
+      layout(barmode = "relative")
+      
+      }
     
   })
   
@@ -1162,9 +1427,7 @@ server <- function(input, output, session) {
       mutate(IssuedAmountNOK = ifelse(input$net_issuance_dum == "Bruttoutstedelser" & IssuedAmountNOK < 0 ,
                                       0,
                                       IssuedAmountNOK))%>%
-      summarise(Issued = sum(IssuedAmountNOK, na.rm = T)/10^9)%>%
-      filter(Today >= input$dates_outstanding[1],
-             Today <= input$dates_outstanding[2])
+      summarise(Issued = sum(IssuedAmountNOK, na.rm = T)/10^9)
     
   })
   
@@ -1249,6 +1512,7 @@ server <- function(input, output, session) {
       "Issued",
       paste("sort_var"),
       paste(input$chart_type),
+      color = nb_colors,
       plot_title     = input$title,
       plot_subtitle  = input$subtitle,
       legend_options = list(showlegend = ifelse(input$sort_var_1 == "Today" & input$sort_var_2 == "Today", F, T)),
