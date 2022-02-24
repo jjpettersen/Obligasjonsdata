@@ -243,7 +243,7 @@ info <- info%>%
 # FIKSE VARIABELNAVN, MAPPING MOT STAMDATA-KLASSIFISERING ------------------------------------------------------------------------------------
 
 # Fikser navn som inneholder æ,ø, å
-sd_names_industry <- tranche_daily%>%ungroup()%>%select(Issuer_Name, Issuer_IndustryGrouping)%>%
+sd_names_industry <- data_complete%>%ungroup()%>%select(Issuer_Name, Issuer_IndustryGrouping)%>%
   unique()%>%
   mutate(Issuer_Name_sd = Issuer_Name,
          
@@ -271,7 +271,6 @@ info <- info%>%
                                           Issuer_IndustryGrouping.y,
                                           Issuer_IndustryGrouping.x))%>%
   select(-Issuer_IndustryGrouping.x, -Issuer_IndustryGrouping.y)
-
 
 
 
@@ -450,16 +449,16 @@ data_latest_reopenings <- rownames_to_column(data_latest_reopenings)%>%rename(id
 
 
 outstanding_compare <- data_latest_reopenings%>%
-  mutate(id_temp = substr(id,1,9))%>%
+  mutate(id_temp = substr(id,1,8))%>%
   left_join(tranche_bb_old%>%
               ungroup()%>%
               select(id, CurrentOutstandingAmount, Today)%>%
-              mutate(id_temp = substr(id,1,9))%>%
+              mutate(id_temp = substr(id,1,8))%>%
               group_by(id)%>%
               filter(Today == max(Today)),
             by = "id_temp")%>%
   mutate(diff = AMT_OUTSTANDING - CurrentOutstandingAmount)%>%
-  filter(diff != 0 | is.na(diff))
+  filter(abs(diff) > 10 | is.na(diff))
 
 
 # Hent data for disse tickerne 
@@ -529,6 +528,7 @@ tickers_floating <- unique(tickers_floating$id)
 
 
 coupon_data <- list()
+
 for (i in tickers_floating) {
   coupon_data[[i]] <- info%>%filter(id == i)%>%select(FIRST_CPN_DT, MaturityDate, frequency)
   
@@ -551,7 +551,7 @@ coupon_schedules <- bind_rows(coupon_schedules)
 fetch_coupon_tickers <- coupon_schedules%>%
   filter(RefixDate > update_bb,
          RefixDate <= Sys.Date())%>%
-  mutate(id = paste0(substr(id,1,9), " Corp"))
+  mutate(id = paste0(substr(id,1,8), " Corp"))
 
 
 fetch_coupon_tickers <- unique(fetch_coupon_tickers$id)
@@ -569,21 +569,21 @@ if (length(fetch_coupon_tickers) > 0) {
   names(coupon_history_new) <- fetch_coupon_tickers
   
   for(i in fetch_coupon_tickers){
-    if(is.null(nrow(coupon_history_new[[i]][[1]])) == T){
+    if(is.null(nrow(coupon_history_new[[i]])) == T){
       coupon_history_new[[i]] <- NULL
     }
     
   }
   
   for(i in (1:length(coupon_history_new))){
-    coupon_history_new[[i]][[1]] <- coupon_history_new[[i]][[1]] %>%
+    coupon_history_new[[i]] <- coupon_history_new[[i]] %>%
       mutate(id = names(coupon_history_new)[[i]]
       )
     
   }
   
   for(i in (1:length(coupon_history_new))){
-    coupon_history_new[[i]] <- data.frame(coupon_history_new[[i]][1])
+    coupon_history_new[[i]] <- data.frame(coupon_history_new[[i]])
     names(coupon_history_new[[i]]) <- c("Today", "CurrentCouponRate", "id")
     
   }
@@ -1161,4 +1161,4 @@ spreads <- rbind(spreads_old, spreads_new)
 update <- Sys.Date()
 
 # Lagre oppdatert data i r-datafilen "sd_dashboard_data"
-save(tranche_daily, outstanding_monthly, spreads, mapping_Issuer_IndustryGrouping, policy_rate, update, sql_info_NA_data, file = "obligasjonsdata_dashboard.rda")
+save(tranche_daily, data_complete, outstanding_monthly, spreads, mapping_Issuer_IndustryGrouping, policy_rate, update, sql_info_NA_data, file = "obligasjonsdata_dashboard.rda")
