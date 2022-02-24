@@ -146,7 +146,7 @@ info_utenlandske_NOK_new <- bdp(tickers_utenlandske_NOK_new,
 info_raw <- bind_rows(info_old, info_norske_new, info_utenlandske_NOK_new)%>%
   ungroup()%>%
   unique()%>%
-  filter(ISSUE_DT <= Sys.Date())
+  filter(ISSUE_DT < Sys.Date())
 
 # Mistenker at info er lagt inn feil i Bloomberg for disse ISIN (2000 mrd NOK i én av dem f.eks)
 info_raw <- info_raw%>%
