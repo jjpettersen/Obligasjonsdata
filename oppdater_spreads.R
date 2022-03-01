@@ -4,6 +4,9 @@ p_load(tidyverse, readxl, RODBC, lubridate, pryr)
 
 setwd("F:/MB/MOA/Likviditet/Analyser/Dataprosjekt/Stamdata/JJP")
 
+load("obligasjonsdata_dashboard.rda")
+
+
 
 spreads_old <- spreads
 
@@ -79,6 +82,22 @@ spreads_new <- spreads_new%>%
          Spread = as.numeric(Spread))
 
 # Slå sammen gammel og ny data
+
+
 spreads <- rbind(spreads_old, spreads_new)
 
+updated_date_spreads <- Sys.Date()
 
+
+
+save(tranche_daily, 
+     data_complete, 
+     outstanding_monthly, 
+     spreads, 
+     mapping_Issuer_IndustryGrouping, 
+     policy_rate,
+     updated_date_FI, 
+     updated_date_spreads, 
+     sql_info_NA_data, 
+     
+     file = "obligasjonsdata_dashboard.rda")
