@@ -226,8 +226,12 @@ ui <- fluidPage(
                  # Knapp som lar brukeren oppdatere datasettet
                  actionButton("update_data", "Oppdater data"),
                  
+                 h5("Sist oppdatert:"),
+                 
                  # Tekst som viser forrige dato for oppdatering
-                 h5((paste0("Sist oppdatert ", format(update, "%d.%m.%Y"))))
+                 h5((paste0("Obligasjonsdata: ", format(updated_date_FI, "%d.%m.%Y")))),
+                 h5((paste0("Kredittspreader: ", format(updated_date_spreads, "%d.%m.%Y"))))
+                 
                  
     ),
     
@@ -549,16 +553,50 @@ server <- function(input, output, session) {
   })
   
   
-  
-  # Dersom brukeren trykker paa "oppdater data"-knappen, vis beskjeden og kjoer "lag_datasett_stamdata"-scriptet.
-  # Naar kjoeringen er ferdig, fjern beskjeden
+
   observeEvent(input$update_data, {
-    showModal(modalDialog("Oppdaterer data. Dette kan ta et par minutter... Restart app.", footer = NULL))
-    source("lag_datasett_stamdata.r")
-    removeModal()
+    showModal(modalDialog("Velg datasett. OBS: Trenger forhåndsdefinerte  søk i SRCH for Bloombergdata.",
+
+      checkboxInput("update_FI",
+                    "Volumer og renter",
+                    value = F),
+      checkboxInput("update_spreads",
+                    "Kredittspreader",
+                    value = F),
+      
+      footer = tagList(
+        modalButton("Avbryt"),
+        actionButton("ok", "Oppdater")
+      )
+      
+      )
+    )
     
+    observeEvent(input$ok, {
+      
+
+      if(input$update_FI == T){
+        showModal(modalDialog("Oppdaterer obligasjonsdata ...", footer = NULL))
+        source("oppdater_obligasjonsdata.r")
+        }
+      
+      
+      
+      if(input$update_spreads == T){
+        showModal(modalDialog("Oppdaterer spreader ...", footer = NULL))
+        source("oppdater_spreads.r")
+      }
+      
+      showModal(modalDialog("Data oppdatert. Restart app for å laste inn data."))
+
+      removeModal()
+      
+    })
+    
+
     
   })
+  
   # Lag datasettet som kan lastes ned i fanen "utestÃende"
   dl_input_outstanding <- reactive({
     
