@@ -2,21 +2,12 @@ library(pacman)
 
 p_load(tidyverse, readxl, RODBC, lubridate, Rblpapi, pryr)
 
-setwd("F:/MB/MOA/Likviditet/Analyser/Dataprosjekt/Stamdata/JJP")
+setwd("F:/MB/MOA/Likviditet/Analyser/Dataprosjekt/Stamdata/JJP/test")
 
-# Last inn gammelt datasett
+
 load("obligasjonsdata_dashboard.rda")
 
-# Lag dataframe som inneholder gammel spread-data
-spreads_old <- spreads
 
-# Siste dato i gammel spread-data. Brukes i innhenting av ny data gjennom SQL
-last_date_spreads <- as.Date(max(spreads_old$Today))
-
-#laster inn mapping mellom numeric og tekst for issue type, issue risk etc.
-issuetype_nt <- read_excel("issuetype.xlsx")
-riskclassrisk_nt <- read_excel("riskclassrisk.xlsx")
-riskclasstype_nt <- read_excel("riskclasstype.xlsx")
 country_codes <- read_excel("country_codes.xlsx")
 
 
@@ -713,20 +704,6 @@ save(tranche_bb, file = "tranche_bb.rda")
 
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 # Koble til server
 dbhandle <- odbcDriverConnect('driver={SQL Server};server=wm-x-s-31;database = NBDataHub;trusted_connection=true')
 
@@ -802,30 +779,6 @@ Mapping_SQL_NA <- sql_info_NA_data%>%
   rename(ISIN = ID_ISIN)%>%
   select(ISIN, RiskClassRisk_tmp)%>%
   filter(is.na(RiskClassRisk_tmp) == F)
-
-
-
-# Last ned spreader (se bort fra datoer vi allerede har i datasettet)
-ISIN_spreads <- sqlQuery(dbhandle,
-                         
-                         paste0("
-SELECT [ISIN]
-      ,[PriceDate]
-      ,[Spread]
-      ,[CreditDuration]
-  FROM [NBDataHub].[NordicBondPricing].[ISINPrices]
-                             
-  WHERE Pricedate > '", last_date_spreads, "'"))
-
-# Laster ned info om ISIN fra Nordic Trustee
-ISIN_info_nt <- sqlQuery(dbhandle,
-                         paste0("
-SELECT DISTINCT
-       [ISIN]
-      ,[Currency]
-      ,[RiskClassRisk]
-      ,[RiskClassType]
-  FROM [NBDataHub].[NordicTrustee].[Issue]"))
 
 
 # Koble fra server
@@ -1118,47 +1071,22 @@ outstanding_monthly <- ISIN_dates%>%
          RiskClassRisk, Issuer_IndustryGrouping, Issuer_Country, ISIN_Country, CurrentOutstandingAmount)
 
 
-# Map info om ISIN med spreads og opprett løpetidsbolker
-spreads_new <- ISIN_spreads%>%
-  left_join(ISIN_info_nt, by = "ISIN")%>%
-  left_join(riskclassrisk_nt, by = "RiskClassRisk") %>%
-  left_join(riskclasstype_nt, by = "RiskClassType") %>%
-  filter(Currency == "NOK") %>%
-  mutate(PriceDate = as.Date(PriceDate),
-         Tenor = ifelse(CreditDuration > 0.000 & CreditDuration < 0.375, "3m", NA),
-         Tenor = ifelse(CreditDuration > 0.375 & CreditDuration < 0.625, "6m", Tenor),
-         Tenor = ifelse(CreditDuration > 0.625 & CreditDuration < 0.875, "9m", Tenor),
-         Tenor = ifelse(CreditDuration > 0.875 & CreditDuration < 1.500, "1y", Tenor),
-         Tenor = ifelse(CreditDuration > 1.500 & CreditDuration < 2.500, "2y", Tenor),
-         Tenor = ifelse(CreditDuration > 2.500 & CreditDuration < 3.500, "3y", Tenor),
-         Tenor = ifelse(CreditDuration > 3.500 & CreditDuration < 4.500, "4y", Tenor),
-         Tenor = ifelse(CreditDuration > 4.500 & CreditDuration < 5.500, "5y", Tenor),
-         Tenor = ifelse(CreditDuration > 5.500 & CreditDuration < 6.500, "6y", Tenor),
-         Tenor = ifelse(CreditDuration > 6.500 & CreditDuration < 7.500, "7y", Tenor),
-         Tenor = ifelse(CreditDuration > 7.500 & CreditDuration < 8.500, "8y", Tenor),
-         Tenor = ifelse(CreditDuration > 8.500 & CreditDuration < 9.500, "9y", Tenor),
-         Tenor = ifelse(CreditDuration > 9.500 & CreditDuration < 10.500, "10y", Tenor),
-         Tenor = ifelse(CreditDuration > 10.50 ,">10y", Tenor))
-
-# Beregn daglige spreader per løpetid per risikoklasso. Bruker median for å begrense utslag av ekstremverdier i halene.
-spreads_new <- spreads_new%>%
-  rename(Today = PriceDate,
-         RiskClass = risk_class)%>%
-  group_by(Today, Tenor, RiskClass)%>%
-  summarise(Spread = median(Spread, na.rm  = T))%>%
-  filter(is.na(Tenor) == F,
-         is.na(RiskClass) == F)%>%
-  mutate(Tenor = factor(Tenor, levels = c("3m", "6m", "9m", "1y", "2y", "3y", "4y", 
-                                          "5y", "6y", "7y", "8y", "9y", "10y", ">10y")),
-         Spread = as.numeric(Spread))
-
-# Slå sammen gammel og ny data
-spreads <- rbind(spreads_old, spreads_new)
-
-
 
 # Lag variabel som viser dato for forrige oppdatering av dataen  
-update <- Sys.Date()
+
+updated_date_FI <- Sys.Date()
 
 # Lagre oppdatert data i r-datafilen "sd_dashboard_data"
-save(tranche_daily, data_complete, outstanding_monthly, spreads, mapping_Issuer_IndustryGrouping, policy_rate, update, sql_info_NA_data, file = "obligasjonsdata_dashboard.rda")
+
+
+save(tranche_daily, 
+     data_complete, 
+     outstanding_monthly, 
+     spreads, 
+     mapping_Issuer_IndustryGrouping, 
+     policy_rate, 
+     updated_date_FI,
+     updated_date_spreads,
+     sql_info_NA_data, 
+     
+     file = "obligasjonsdata_dashboard.rda")
